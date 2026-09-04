@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KBO 야구팀 추천(짜르)</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --bg: #f6f7f9;
+      --card: #ffffff;
+      --text: #17191c;
+      --muted: #707780;
+      --line: #e5e8ec;
+      --accent: #1f4f93;
+      --accent-dark: #163c70;
+      --soft: #eef4fb;
+      --shadow: 0 8px 24px rgba(20, 27, 38, 0.07);
+    }
+
+    body {
+      margin: 0;
+      font-family: "Pretendard", "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .wrap {
+      width: min(920px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0 72px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 5vw, 42px);
+      letter-spacing: -0.03em;
+    }
+
+    .intro {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .progress-box {
+      position: sticky;
+      top: 12px;
+      z-index: 10;
+      margin-bottom: 18px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.94);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 4px 14px rgba(20, 27, 38, 0.05);
+      backdrop-filter: blur(8px);
+    }
+
+    .progress-text {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .progress-track {
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #edf0f3;
+    }
+
+    .progress-bar {
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--accent);
+      transition: width 0.2s ease;
+    }
+
+    #questions {
+      display: grid;
+      gap: 14px;
+    }
+
+    .question-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .question-number {
+      display: inline-block;
+      margin-bottom: 8px;
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .question-text {
+      margin: 0 0 18px;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.55;
+      letter-spacing: -0.015em;
+    }
+
+    .score-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .score-btn {
+      min-height: 46px;
+      border: 1px solid #d7dce2;
+      border-radius: 12px;
+      background: #fff;
+      color: #31363c;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+
+    .score-btn:hover {
+      border-color: var(--accent);
+      background: var(--soft);
+      color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .score-btn.selected {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .score-guide {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      color: #9298a0;
+      font-size: 12px;
+    }
+
+    .action {
+      margin-top: 26px;
+      text-align: center;
+    }
+
+    #recommendBtn {
+      width: min(420px, 100%);
+      min-height: 54px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--accent);
+      color: white;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+
+    #recommendBtn:hover { background: var(--accent-dark); }
+    #recommendBtn:disabled { background: #bcc4ce; cursor: not-allowed; }
+
+    .notice {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    #resultSection {
+      display: none;
+      margin-top: 36px;
+      padding-top: 12px;
+    }
+
+    .result-title {
+      margin: 0 0 8px;
+      text-align: center;
+      font-size: 28px;
+      letter-spacing: -0.025em;
+    }
+
+    .result-subtitle {
+      margin: 0 0 22px;
+      text-align: center;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+    }
+
+    .team-card {
+      overflow: hidden;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .team-image-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 210px;
+      padding: 22px;
+      background: #fafbfc;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .team-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .image-fallback {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: #9aa1a9;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .team-body { padding: 20px; text-align: center; }
+    .team-name { margin: 0 0 8px; font-size: 24px; }
+    .team-distance { margin: 0; color: var(--muted); font-size: 14px; }
+
+    .retry {
+      margin-top: 18px;
+      text-align: center;
+    }
+
+    .retry button {
+      border: 1px solid #d6dbe1;
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .error {
+      padding: 18px;
+      border: 1px solid #efc9c9;
+      border-radius: 14px;
+      background: #fff5f5;
+      color: #9b2f2f;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 560px) {
+      .wrap { width: min(100% - 20px, 920px); padding-top: 28px; }
+      .question-card { padding: 18px 14px; }
+      .question-text { font-size: 16px; }
+      .score-row { gap: 6px; }
+      .score-btn { min-height: 44px; }
+      .team-image-wrap { height: 180px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <h1>KBO 야구팀 추천(짜르)</h1>
+      <p class="intro">13개의 질문에 1~5점으로 답하면<br>나와 성향이 가장 비슷한 KBO 팀을 찾아드립니다.</p>
+    </header>
+
+    <section class="progress-box" aria-label="응답 진행률">
+      <div class="progress-text">
+        <span>응답 진행률</span>
+        <strong id="progressCount">0 / 0</strong>
+      </div>
+      <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+    </section>
+
+    <section id="questions"></section>
+
+    <div class="action">
+      <button id="recommendBtn" type="button" disabled>모든 질문에 답해주세요</button>
+      <div class="notice">1 = 전혀 그렇지 않다 · 5 = 매우 그렇다</div>
+    </div>
+
+    <section id="resultSection">
+      <h2 class="result-title" id="resultTitle">추천 결과</h2>
+      <p class="result-subtitle" id="resultSubtitle"></p>
+      <div class="result-grid" id="resultGrid"></div>
+      <div class="retry"><button id="retryBtn" type="button">다시 해보기</button></div>
+    </section>
+  </main>
+
+  <script>
+    const CSV_PATH = 'data/item.csv';
+    const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG', 'WEBP'];
+
+    let questions = [];
+    let teamNames = [];
+    let teamScores = {};
+    let answers = [];
+
+    const questionsEl = document.getElementById('questions');
+    const recommendBtn = document.getElementById('recommendBtn');
+    const progressCount = document.getElementById('progressCount');
+    const progressBar = document.getElementById('progressBar');
+    const resultSection = document.getElementById('resultSection');
+    const resultGrid = document.getElementById('resultGrid');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultSubtitle = document.getElementById('resultSubtitle');
+
+    function parseCSV(text) {
+      const rows = [];
+      let row = [];
+      let cell = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const next = text[i + 1];
+
+        if (ch === '"') {
+          if (inQuotes && next === '"') {
+            cell += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === ',' && !inQuotes) {
+          row.push(cell.trim());
+          cell = '';
+        } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+          if (ch === '\r' && next === '\n') i++;
+          row.push(cell.trim());
+          cell = '';
+          if (row.some(v => v !== '')) rows.push(row);
+          row = [];
+        } else {
+          cell += ch;
+        }
+      }
+
+      if (cell.length || row.length) {
+        row.push(cell.trim());
+        if (row.some(v => v !== '')) rows.push(row);
+      }
+      return rows;
+    }
+
+    async function loadData() {
+      try {
+        const response = await fetch(CSV_PATH, { cache: 'no-store' });
+        if (!response.ok) throw new Error('CSV 파일을 불러오지 못했습니다.');
+
+        const text = await response.text();
+        const rows = parseCSV(text);
+        if (rows.length < 2) throw new Error('CSV에 사용할 데이터가 없습니다.');
+
+        const headers = rows[0].map(h => h.trim());
+        const questionIndex = 0;
+        teamNames = headers.slice(1).filter(Boolean);
+
+        const validRows = rows.slice(1).filter(row => {
+          const q = (row[questionIndex] || '').trim();
+          if (!q) return false;
+          const values = teamNames.map((_, idx) => Number(row[idx + 1]));
+          return values.length > 0 && values.every(v => Number.isFinite(v) && v >= 1 && v <= 5);
+        });
+
+        if (!validRows.length) throw new Error('1~5점의 유효한 질문 데이터가 없습니다.');
+
+        questions = validRows.map(row => row[0].trim());
+        answers = Array(questions.length).fill(null);
+
+        teamScores = {};
+        teamNames.forEach((team, teamIdx) => {
+          teamScores[team] = validRows.map(row => Number(row[teamIdx + 1]));
+        });
+
+        renderQuestions();
+        updateProgress();
+      } catch (error) {
+        questionsEl.innerHTML = `
+          <div class="error">
+            <strong>데이터를 불러올 수 없습니다.</strong><br>
+            GitHub/Vercel에서 <code>data/item.csv</code> 파일이 있는지 확인해주세요.<br>
+            ${error.message}
+          </div>`;
+        recommendBtn.style.display = 'none';
+      }
+    }
+
+    function renderQuestions() {
+      questionsEl.innerHTML = '';
+
+      questions.forEach((question, index) => {
+        const card = document.createElement('article');
+        card.className = 'question-card';
+        card.innerHTML = `
+          <span class="question-number">Q${index + 1}</span>
+          <p class="question-text"></p>
+          <div class="score-row" role="group" aria-label="${index + 1}번 질문 점수 선택">
+            ${[1,2,3,4,5].map(score => `
+              <button class="score-btn" type="button" data-question="${index}" data-score="${score}" aria-label="${score}점">${score}</button>
+            `).join('')}
+          </div>
+          <div class="score-guide"><span>전혀 그렇지 않다</span><span>매우 그렇다</span></div>
+        `;
+        card.querySelector('.question-text').textContent = question;
+        questionsEl.appendChild(card);
+      });
+
+      document.querySelectorAll('.score-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const qIndex = Number(btn.dataset.question);
+          const score = Number(btn.dataset.score);
+          answers[qIndex] = score;
+
+          document.querySelectorAll(`.score-btn[data-question="${qIndex}"]`).forEach(b => {
+            b.classList.toggle('selected', Number(b.dataset.score) === score);
+            b.setAttribute('aria-pressed', Number(b.dataset.score) === score ? 'true' : 'false');
+          });
+
+          updateProgress();
+        });
+      });
+    }
+
+    function updateProgress() {
+      const completed = answers.filter(v => v !== null).length;
+      const total = questions.length;
+      progressCount.textContent = `${completed} / ${total}`;
+      progressBar.style.width = total ? `${(completed / total) * 100}%` : '0%';
+
+      const ready = completed === total && total > 0;
+      recommendBtn.disabled = !ready;
+      recommendBtn.textContent = ready ? '내 KBO 팀 추천받기' : '모든 질문에 답해주세요';
+    }
+
+    function calculateResults() {
+      // 학생들이 정한 방식: 각 항목의 점수 차이 절댓값을 모두 더한다.
+      // 총 차이가 가장 작은 팀이 가장 유사한 팀이다.
+      const distances = teamNames.map(team => {
+        const totalDifference = teamScores[team].reduce((sum, teamScore, i) => {
+          return sum + Math.abs(answers[i] - teamScore);
+        }, 0);
+        return { team, distance: totalDifference };
+      });
+
+      const minDistance = Math.min(...distances.map(item => item.distance));
+      return distances.filter(item => item.distance === minDistance);
+    }
+
+    function createTeamImage(team) {
+      const wrap = document.createElement('div');
+      wrap.className = 'team-image-wrap';
+
+      const img = document.createElement('img');
+      img.className = 'team-image';
+      img.alt = `${team} 팀 이미지`;
+
+      const fallback = document.createElement('div');
+      fallback.className = 'image-fallback';
+      fallback.textContent = `${team} 이미지`;
+
+      let extIndex = 0;
+      const tryNext = () => {
+        if (extIndex >= IMAGE_EXTENSIONS.length) {
+          img.style.display = 'none';
+          fallback.style.display = 'flex';
+          return;
+        }
+        img.src = `img/${encodeURIComponent(team)}.${IMAGE_EXTENSIONS[extIndex++]}`;
+      };
+
+      img.onerror = tryNext;
+      tryNext();
+
+      wrap.appendChild(img);
+      wrap.appendChild(fallback);
+      return wrap;
+    }
+
+    function showResults() {
+      const winners = calculateResults();
+      resultGrid.innerHTML = '';
+
+      if (winners.length === 1) {
+        resultTitle.textContent = `당신에게 가장 잘 맞는 팀은 ${winners[0].team}!`;
+        resultSubtitle.textContent = '13개 항목의 점수 차이를 비교했을 때 가장 가까운 팀입니다.';
+      } else {
+        resultTitle.textContent = `가장 잘 맞는 팀이 ${winners.length}개입니다!`;
+        resultSubtitle.textContent = '최소 점수 차이가 같은 팀을 모두 추천 결과로 표시했습니다.';
+      }
+
+      winners.forEach(({ team, distance }) => {
+        const card = document.createElement('article');
+        card.className = 'team-card';
+        card.appendChild(createTeamImage(team));
+
+        const body = document.createElement('div');
+        body.className = 'team-body';
+        body.innerHTML = `
+          <h3 class="team-name"></h3>
+          <p class="team-distance">총 점수 차이: <strong>${distance}</strong></p>
+        `;
+        body.querySelector('.team-name').textContent = team;
+        card.appendChild(body);
+        resultGrid.appendChild(card);
+      });
+
+      resultSection.style.display = 'block';
+      resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    recommendBtn.addEventListener('click', showResults);
+
+    document.getElementById('retryBtn').addEventListener('click', () => {
+      answers = Array(questions.length).fill(null);
+      document.querySelectorAll('.score-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        btn.setAttribute('aria-pressed', 'false');
+      });
+      resultSection.style.display = 'none';
+      updateProgress();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    loadData();
+  </script>
+</body>
+</html>
