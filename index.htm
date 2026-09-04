@@ -458,17 +458,32 @@
     }
 
     function calculateResults() {
-      // 학생들이 정한 방식: 각 항목의 점수 차이 절댓값을 모두 더한다.
-      // 총 차이가 가장 작은 팀이 가장 유사한 팀이다.
-      const distances = teamNames.map(team => {
-        const totalDifference = teamScores[team].reduce((sum, teamScore, i) => {
-          return sum + Math.abs(answers[i] - teamScore);
+      // 코사인 유사도 계산
+      const similarities = teamNames.map(team => {
+        const scores = teamScores[team];
+
+        const dotProduct = answers.reduce((sum, answer, i) => {
+          return sum + answer * scores[i];
         }, 0);
-        return { team, distance: totalDifference };
+
+        const userMagnitude = Math.sqrt(
+          answers.reduce((sum, answer) => sum + answer * answer, 0)
+        );
+
+        const teamMagnitude = Math.sqrt(
+          scores.reduce((sum, score) => sum + score * score, 0)
+        );
+
+        const similarity = dotProduct / (userMagnitude * teamMagnitude);
+        return { team, similarity };
       });
 
-      const minDistance = Math.min(...distances.map(item => item.distance));
-      return distances.filter(item => item.distance === minDistance);
+      const maxSimilarity = Math.max(...similarities.map(item => item.similarity));
+
+      const EPSILON = 1e-12;
+      return similarities.filter(
+        item => Math.abs(item.similarity - maxSimilarity) < EPSILON
+      );
     }
 
     function createTeamImage(team) {
@@ -507,13 +522,13 @@
 
       if (winners.length === 1) {
         resultTitle.textContent = `당신에게 가장 잘 맞는 팀은 ${winners[0].team}!`;
-        resultSubtitle.textContent = '13개 항목의 점수 차이를 비교했을 때 가장 가까운 팀입니다.';
+        resultSubtitle.textContent = '13개 응답과 각 팀의 특성 점수를 코사인 유사도로 비교한 결과입니다.';
       } else {
         resultTitle.textContent = `가장 잘 맞는 팀이 ${winners.length}개입니다!`;
-        resultSubtitle.textContent = '최소 점수 차이가 같은 팀을 모두 추천 결과로 표시했습니다.';
+        resultSubtitle.textContent = '최고 코사인 유사도가 같은 팀을 모두 추천 결과로 표시했습니다.';
       }
 
-      winners.forEach(({ team, distance }) => {
+      winners.forEach(({ team, similarity }) => {
         const card = document.createElement('article');
         card.className = 'team-card';
         card.appendChild(createTeamImage(team));
@@ -522,7 +537,7 @@
         body.className = 'team-body';
         body.innerHTML = `
           <h3 class="team-name"></h3>
-          <p class="team-distance">총 점수 차이: <strong>${distance}</strong></p>
+          <p class="team-distance">코사인 유사도: <strong>${similarity.toFixed(4)}</strong></p>
         `;
         body.querySelector('.team-name').textContent = team;
         card.appendChild(body);
