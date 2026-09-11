@@ -244,9 +244,37 @@
       text-align: center;
     }
 
-    .team-body { padding: 20px; text-align: center; }
-    .team-name { margin: 0 0 8px; font-size: 24px; }
-    .team-distance { margin: 0; color: var(--muted); font-size: 14px; }
+    .team-body {
+      padding: 24px 28px 28px;
+      text-align: center;
+    }
+
+    .team-name {
+      margin: 0 0 8px;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+    }
+
+    .team-distance {
+      margin: 0;
+      color: #8a9098;
+      font-size: 13px;
+    }
+
+    .team-description {
+      max-width: 700px;
+      margin: 22px auto 0;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      text-align: left;
+      white-space: pre-line;
+      font-size: 15px;
+      line-height: 1.85;
+      color: #4f5660;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
 
     .retry {
       margin-top: 18px;
@@ -278,6 +306,14 @@
       .score-row { gap: 6px; }
       .score-btn { min-height: 44px; }
       .team-image-wrap { height: 180px; }
+      .team-body { padding: 20px 18px 24px; }
+      .team-name { font-size: 23px; }
+      .team-description {
+        margin-top: 18px;
+        padding-top: 18px;
+        font-size: 14px;
+        line-height: 1.8;
+      }
     }
   </style>
 </head>
@@ -313,11 +349,13 @@
 
   <script>
     const CSV_PATH = 'data/item.csv';
+    const TEAM_INFO_PATH = 'data/team script.csv';
     const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'JPG', 'JPEG', 'PNG', 'WEBP'];
 
     let questions = [];
     let teamNames = [];
     let teamScores = {};
+    let teamInfo = {};
     let answers = [];
 
     const questionsEl = document.getElementById('questions');
@@ -369,12 +407,18 @@
 
     async function loadData() {
       try {
-        const response = await fetch(CSV_PATH, { cache: 'no-store' });
-        if (!response.ok) throw new Error('CSV 파일을 불러오지 못했습니다.');
+        const [itemResponse, teamResponse] = await Promise.all([
+          fetch(CSV_PATH, { cache: 'no-store' }),
+          fetch(TEAM_INFO_PATH, { cache: 'no-store' })
+        ]);
 
-        const text = await response.text();
-        const rows = parseCSV(text);
-        if (rows.length < 2) throw new Error('CSV에 사용할 데이터가 없습니다.');
+        if (!itemResponse.ok) throw new Error('data/item.csv 파일을 불러오지 못했습니다.');
+        if (!teamResponse.ok) throw new Error('data/team script.csv 파일을 불러오지 못했습니다.');
+
+        // 질문/팀 점수 데이터
+        const itemText = await itemResponse.text();
+        const rows = parseCSV(itemText);
+        if (rows.length < 2) throw new Error('item.csv에 사용할 데이터가 없습니다.');
 
         const headers = rows[0].map(h => h.trim());
         const questionIndex = 0;
@@ -397,13 +441,38 @@
           teamScores[team] = validRows.map(row => Number(row[teamIdx + 1]));
         });
 
+        // 팀 정식 명칭/설명 데이터
+        const teamText = await teamResponse.text();
+        const teamRows = parseCSV(teamText);
+        if (teamRows.length < 2) throw new Error('team script.csv에 사용할 데이터가 없습니다.');
+
+        const teamHeaders = teamRows[0].map(h => h.replace(/^\uFEFF/, '').trim());
+        const itemNameIndex = teamHeaders.indexOf('item 이름');
+        const fullNameIndex = teamHeaders.indexOf('팀 full name');
+        const descriptionIndex = teamHeaders.indexOf('팀 설명');
+
+        if (itemNameIndex === -1 || fullNameIndex === -1 || descriptionIndex === -1) {
+          throw new Error('team script.csv의 열 제목(item 이름, 팀 full name, 팀 설명)을 확인해주세요.');
+        }
+
+        teamInfo = {};
+        teamRows.slice(1).forEach(row => {
+          const itemName = (row[itemNameIndex] || '').trim();
+          if (!itemName) return;
+
+          teamInfo[itemName] = {
+            fullName: (row[fullNameIndex] || '').trim(),
+            description: (row[descriptionIndex] || '').trim()
+          };
+        });
+
         renderQuestions();
         updateProgress();
       } catch (error) {
         questionsEl.innerHTML = `
           <div class="error">
             <strong>데이터를 불러올 수 없습니다.</strong><br>
-            GitHub/Vercel에서 <code>data/item.csv</code> 파일이 있는지 확인해주세요.<br>
+            GitHub/Vercel의 <code>data/item.csv</code>와 <code>data/team script.csv</code> 파일을 확인해주세요.<br>
             ${error.message}
           </div>`;
         recommendBtn.style.display = 'none';
@@ -529,17 +598,35 @@
       }
 
       winners.forEach(({ team, similarity }) => {
+        const info = teamInfo[team] || {};
+        const fullName = info.fullName || team;
+        const description = info.description || '';
+
         const card = document.createElement('article');
         card.className = 'team-card';
         card.appendChild(createTeamImage(team));
 
         const body = document.createElement('div');
         body.className = 'team-body';
-        body.innerHTML = `
-          <h3 class="team-name"></h3>
-          <p class="team-distance">코사인 유사도: <strong>${similarity.toFixed(4)}</strong></p>
-        `;
-        body.querySelector('.team-name').textContent = team;
+
+        const nameEl = document.createElement('h3');
+        nameEl.className = 'team-name';
+        nameEl.textContent = fullName;
+
+        const similarityEl = document.createElement('p');
+        similarityEl.className = 'team-distance';
+        similarityEl.innerHTML = `코사인 유사도: <strong>${similarity.toFixed(4)}</strong>`;
+
+        body.appendChild(nameEl);
+        body.appendChild(similarityEl);
+
+        if (description) {
+          const descriptionEl = document.createElement('div');
+          descriptionEl.className = 'team-description';
+          descriptionEl.textContent = description;
+          body.appendChild(descriptionEl);
+        }
+
         card.appendChild(body);
         resultGrid.appendChild(card);
       });
